@@ -1,0 +1,21 @@
+{
+  "name": "土地開發綜合試算工具",
+  "short_name": "土地試算",
+  "description": "土地開發綜合試算工具，包含回饋金、太陽能、水電與架橋規費試算。",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#fbf5f5",
+  "theme_color": "#be595b",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
