@@ -12,7 +12,7 @@
     <link rel="manifest" href="manifest.json">
 
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <!-- 移除原本的 html2pdf 庫以減少負載並避免空白頁問題 -->
 
     <script>
         tailwind.config = {
@@ -38,7 +38,15 @@
         .tab-btn { flex: 0 0 auto; padding: 12px 16px; }
         #historySection { max-height: 0; overflow: hidden; transition: max-height 0.3s ease-out; }
         #historySection.expanded { max-height: 1000px; }
-        @media print { .no-print { display: none !important; } }
+        
+        /* 優化列印樣式 */
+        @media print {
+            body { background: white !important; p: 0; }
+            .no-print { display: none !important; }
+            #appContainer { box-shadow: none !important; border: none !important; max-width: 100% !important; width: 100% !important; p: 0 !important; }
+            #resultCard { display: block !important; border: none !important; background: white !important; p: 0 !important; }
+            #printHeader { display: block !important; }
+        }
     </style>
 </head>
 <body class="bg-background text-text min-h-screen flex flex-col items-center p-4">
@@ -196,7 +204,8 @@
 
         <div id="resultCard" class="hidden bg-background rounded-2xl p-5 border border-secondary/30 space-y-4">
             <div id="pdfContent">
-                <div class="mb-4 text-center border-b border-gray-200 pb-2 hidden print:block"><h2 class="text-lg font-bold">土地開發評估詳細報告</h2></div>
+                <!-- 新增：專供列印時顯示的標題 -->
+                <div id="printHeader" class="mb-4 text-center border-b border-gray-200 pb-2 hidden"><h2 class="text-lg font-bold">土地開發評估詳細報告</h2></div>
                 <div>
                     <h3 class="text-sm font-bold text-primary border-b border-secondary/30 pb-1">📊 試算結果項目：<span id="resNote" class="text-text">無紀錄</span></h3>
                     <p class="text-[10px] text-gray-400 mt-1">評估業務類別：<span id="resCategory" class="font-semibold text-text">-</span></p>
@@ -240,7 +249,16 @@
                     <p id="bridgeNotice" class="text-[11px] text-gray-400 mt-1 italic hidden">註：總額已包含回溯追繳5年之使用規費。</p>
                 </div>
             </div>
-            <button onclick="exportToPDF()" class="w-full bg-accent hover:opacity-90 text-text font-semibold py-2.5 rounded-xl shadow transition duration-200 no-print flex items-center justify-center space-x-2 text-sm"><span>匯出 PDF 報告 📄</span></button>
+            
+            <!-- 替換功能按鈕 -->
+            <div class="grid grid-cols-2 gap-3 no-print">
+                <button onclick="copyReport()" class="bg-accent hover:opacity-90 text-text font-semibold py-2.5 rounded-xl shadow transition duration-200 flex items-center justify-center space-x-2 text-sm">
+                    <span>複製報告內容 📋</span>
+                </button>
+                <button onclick="window.print()" class="bg-gray-100 hover:bg-gray-200 text-text font-semibold py-2.5 rounded-xl shadow transition duration-200 flex items-center justify-center space-x-2 text-sm">
+                    <span>列印/另存 PDF 🖨️</span>
+                </button>
+            </div>
         </div>
 
         <div class="border-t pt-4 no-print">
@@ -253,6 +271,7 @@
 
     <script>
         let currentMode = 'feedback'; let feedbackRate = 0.50; let solarRate = 0.20; let fitRate = 3.8772; let bridgeMultiplier = 20;
+        
         function switchTab(mode) {
             currentMode = mode; const resultCard = document.getElementById('resultCard'); if (resultCard) resultCard.classList.add('hidden');
             const tabs = ['feedback', 'solar', 'utility', 'bridge'];
@@ -266,6 +285,7 @@
                 }
             });
         }
+
         function syncPing() { const el = document.getElementById('area'); const hint = document.getElementById('pingHint'); if (el && hint) { const val = parseFloat(el.value); hint.innerText = (!isNaN(val) && val > 0) ? `約 ${(val * 0.3025).toFixed(2)} 坪` : `約 0.00 坪`; } }
         function syncSolarKW() { const el = document.getElementById('solarPing'); const hint = document.getElementById('solarKwHint'); if (el && hint) { const val = parseFloat(el.value); hint.innerText = (!isNaN(val) && val > 0) ? `預估發電量約： ${(val / 2).toFixed(2)} KW` : `預估發電量約：0.00 KW`; } }
         function setFeedbackRate(rate, element) { feedbackRate = rate; const customInput = document.getElementById('customFeedbackRate'); if (customInput) customInput.value = ''; document.querySelectorAll('.feedback-rate-btn').forEach(btn => { btn.className = "feedback-rate-btn border p-3 rounded-xl text-base font-bold text-gray-500 bg-white hover:bg-background border-gray-200"; }); if (element) element.className = "feedback-rate-btn border p-3 rounded-xl text-base font-bold border-primary bg-background text-primary"; }
@@ -275,11 +295,13 @@
         function setSolarRate(rate, element) { solarRate = rate; const customInput = document.getElementById('customSolarRate'); if (customInput) customInput.value = ''; document.querySelectorAll('.solar-rate-btn').forEach(btn => { btn.className = "solar-rate-btn border p-2.5 rounded-xl text-sm font-bold border-gray-200 bg-white text-gray-500 hover:bg-background"; }); if (element) element.className = "solar-rate-btn border p-2.5 rounded-xl text-sm font-bold border-primary bg-background text-primary"; }
         function setCustomSolarRate() { document.querySelectorAll('.solar-rate-btn').forEach(btn => { btn.className = "solar-rate-btn border p-2.5 rounded-xl text-sm font-bold border-gray-200 bg-white text-gray-500 hover:bg-background"; }); const customInput = document.getElementById('customSolarRate'); let val = customInput ? parseFloat(customInput.value) : 0; solarRate = !isNaN(val) ? val / 100 : 0; }
         function setBridgeStatus(multiplier, element) { bridgeMultiplier = multiplier; document.querySelectorAll('.bridge-status-btn').forEach(btn => { btn.className = "bridge-status-btn border p-3 rounded-xl text-sm font-bold border-gray-200 bg-white text-gray-500 hover:bg-background"; }); if (element) element.className = "bridge-status-btn border p-3 rounded-xl text-sm font-bold border-primary bg-background text-primary"; }
+
         function performCalculation() {
             const today = new Date(); const dateStr = `${today.getFullYear()}/${today.getMonth() + 1}/${today.getDate()}`; document.getElementById('pdfDate').innerText = dateStr;
             const groups = { feedback: document.getElementById('resFeedbackGroup'), solar: document.getElementById('resSolarGroup'), utility: document.getElementById('resUtilityGroup'), bridge: document.getElementById('resBridgeGroup') };
             Object.values(groups).forEach(g => { if(g) g.classList.add('hidden'); });
             let calcResult = { date: dateStr, note: "", category: "", amount: "" };
+            
             if (currentMode === 'feedback') {
                 const note = document.getElementById('landNote1').value || "未註記地號"; const area = parseFloat(document.getElementById('area').value); const presentValue = parseFloat(document.getElementById('presentValue').value);
                 if (isNaN(area) || area <= 0 || isNaN(presentValue) || presentValue <= 0 || feedbackRate === 0) { alert("請確實填寫面積、公告現值並選擇回饋金比例！"); return; }
@@ -321,12 +343,32 @@
             }
             document.getElementById('resultCard').classList.remove('hidden'); saveToHistory(calcResult); document.getElementById('resultCard').scrollIntoView({ behavior: 'smooth' });
         }
-        function exportToPDF() {
-            const element = document.getElementById('pdfContent'); const note = document.getElementById('resNote').innerText;
-            const opt = { margin: 10, filename: `土地開發評估報告_${note}.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2, useCORS: true }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } };
-            const btn = event.currentTarget; const originalText = btn.innerHTML; btn.innerHTML = "<span>正在產生 PDF... ⏳</span>"; btn.disabled = true;
-            html2pdf().set(opt).from(element).save().then(() => { btn.innerHTML = originalText; btn.disabled = false; }).catch(err => { alert("PDF 產生失敗"); btn.innerHTML = originalText; btn.disabled = false; });
+
+        // 修正：新增複製報告內容功能
+        function copyReport() {
+            const date = document.getElementById('pdfDate').innerText;
+            const note = document.getElementById('resNote').innerText;
+            const category = document.getElementById('resCategory').innerText;
+            let content = `【土地開發評估報告】\n產出日期：${date}\n項目：${note}\n類別：${category}\n------------------\n`;
+            
+            if (currentMode === 'feedback') {
+                content += `土地面積：${document.getElementById('resAreaText').innerText}\n公告現值：${document.getElementById('resPresentValueText').innerText}\n土地坪數：${document.getElementById('resPing').innerText}\n土地總值：${document.getElementById('resTotalValue').innerText}\n回饋比例：${document.getElementById('resRate').innerText}\n預估總額：${document.getElementById('resFeedbackFee').innerText}`;
+            } else if (currentMode === 'solar') {
+                content += `屋頂坪數：${document.getElementById('resSolarPingValue').innerText}\n發電容量：${document.getElementById('resSolarKwValue').innerText}\n收購費率：${document.getElementById('resSolarFitValue').innerText}\n分潤比例：${document.getElementById('resSolarRateValue').innerText}\n預估年租金：${document.getElementById('resSolarRent').innerText}`;
+            } else if (currentMode === 'utility') {
+                content += `馬力數：${document.getElementById('resHp').innerText}\n換算瓦數：${document.getElementById('resKw').innerText}\n評估人數：${document.getElementById('resPeople').innerText}\n日用水量：${document.getElementById('resWater').innerText}`;
+            } else if (currentMode === 'bridge') {
+                content += `架橋尺寸：${document.getElementById('resBridgeLen').innerText} x ${document.getElementById('resBridgeWid').innerText}\n使用面積：${document.getElementById('resBridgeArea').innerText}\n每年規費：${document.getElementById('resBridgeAnnual').innerText}\n應繳總額：${document.getElementById('resBridgeTotal').innerText}`;
+            }
+
+            navigator.clipboard.writeText(content).then(() => {
+                alert("報告內容已複製到剪貼簿！");
+            }).catch(err => {
+                console.error('無法複製', err);
+                alert("複製失敗，請手動選取文字複製。");
+            });
         }
+
         function saveToHistory(item) { let history = JSON.parse(localStorage.getItem('land_calc_history') || '[]'); history.unshift(item); if (history.length > 10) history = history.slice(0, 10); localStorage.setItem('land_calc_history', JSON.stringify(history)); renderHistory(); }
         function renderHistory() {
             const history = JSON.parse(localStorage.getItem('land_calc_history') || '[]'); const listEl = document.getElementById('historyList'); const clearBtn = document.getElementById('btnClearHistory');
@@ -335,6 +377,7 @@
         }
         function clearHistory() { if (confirm('確定要清除所有歷史紀錄嗎？')) { localStorage.removeItem('land_calc_history'); renderHistory(); } }
         function toggleHistory() { const section = document.getElementById('historySection'); const chevron = document.getElementById('historyChevron'); section.classList.toggle('expanded'); chevron.style.transform = section.classList.contains('expanded') ? 'rotate(180deg)' : 'rotate(0deg)'; }
+        
         window.onload = () => {
             renderHistory();
             if ('serviceWorker' in navigator) { navigator.serviceWorker.register('./sw.js').then(() => console.log('SW registered')); }
