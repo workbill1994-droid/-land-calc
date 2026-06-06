@@ -56,7 +56,6 @@
             <button id="tabBridge" onclick="switchTab('bridge')" class="tab-btn text-xs font-bold border-b-2 border-transparent text-gray-400 focus:outline-none">架橋規費 🌉</button>
         </div>
 
-        <!-- 輸入區塊 (保持不變) -->
         <div id="sectionFeedback" class="space-y-4 no-print">
             <div><label class="block text-sm font-semibold text-text mb-1">地段地號</label><input type="text" id="landNote1" placeholder="例如：某某段 123 地號" class="w-full px-4 py-2 border rounded-xl focus:ring-2 focus:ring-secondary focus:outline-none text-sm border-gray-200"></div>
             <div><label class="block text-sm font-semibold text-text mb-1">土地面積 (㎡)</label><div class="relative"><input type="number" inputmode="decimal" id="area" placeholder="請輸入面積" oninput="syncPing()" class="w-full pl-4 pr-12 py-2 border rounded-xl focus:ring-2 focus:ring-secondary focus:outline-none text-sm border-gray-200"><span class="absolute right-4 top-2 text-sm text-gray-400 font-medium">㎡</span></div><p id="pingHint" class="text-xs text-gray-400 mt-1 text-right">約 0.00 坪</p></div>
@@ -174,59 +173,77 @@
             document.getElementById('resultCard').classList.remove('hidden'); saveToHistory(res);
         }
 
-        // 🚀 終極 PDF 修正：使用純內嵌樣式 HTML 字符串
         function exportToPDF() {
             const btn = event.currentTarget; btn.innerHTML = "產生中..."; btn.disabled = true;
+            
+            // 直接從畫面獲取內容，不依賴變數
             const note = document.getElementById('resNote').innerText;
             const cat = document.getElementById('resCategory').innerText;
             const date = document.getElementById('pdfDate').innerText;
 
-            // 建立純 HTML 結構，完全不依賴 Tailwind
-            let html = `
-                <div style="font-family: sans-serif; padding: 30px; color: #333; line-height: 1.6;">
-                    <div style="text-align: center; color: #be595b; font-size: 28px; font-weight: bold; border-bottom: 3px solid #be595b; padding-bottom: 15px; margin-bottom: 25px;">土地開發評估報告</div>
-                    <div style="background: #fbf5f5; padding: 20px; border-radius: 10px; margin-bottom: 20px;">
-                        <div style="display: flex; justify-content: space-between; margin-bottom: 10px;"><b>地段地號：</b><span>${note}</span></div>
-                        <div style="display: flex; justify-content: space-between; margin-bottom: 10px;"><b>評估類別：</b><span>${cat}</span></div>
-                        <div style="display: flex; justify-content: space-between;"><b>產出日期：</b><span>${date}</span></div>
+            // 找出當前顯示的數據區塊
+            let rowsHtml = "";
+            const groups = [
+                {id: 'resFeedbackGroup', rows: [
+                    {l: '土地面積', v: document.getElementById('resAreaText').innerText},
+                    {l: '公告現值', v: document.getElementById('resPresentValueText').innerText},
+                    {l: '回饋金比例', v: document.getElementById('resRate').innerText},
+                    {l: '預估回饋金', v: document.getElementById('resFeedbackFee').innerText, highlight: true}
+                ]},
+                {id: 'resSolarGroup', rows: [
+                    {l: '屋頂坪數', v: document.getElementById('resSolarPingValue').innerText},
+                    {l: '發電容量', v: document.getElementById('resSolarKwValue').innerText},
+                    {l: '年度租金收益', v: document.getElementById('resSolarRent').innerText, highlight: true}
+                ]},
+                {id: 'resUtilityGroup', rows: [
+                    {l: '電力需求', v: document.getElementById('resKw').innerText},
+                    {l: '日用水量', v: document.getElementById('resWater').innerText}
+                ]},
+                {id: 'resBridgeGroup', rows: [
+                    {l: '架橋面積', v: document.getElementById('resBridgeArea').innerText},
+                    {l: '預估總規費', v: document.getElementById('resBridgeTotal').innerText, highlight: true}
+                ]}
+            ];
+
+            groups.forEach(g => {
+                if (!document.getElementById(g.id).classList.contains('hidden')) {
+                    g.rows.forEach(r => {
+                        rowsHtml += `
+                            <tr>
+                                <td style="padding: 12px; border-bottom: 1px solid #eee; color: #666;">${r.l}</td>
+                                <td style="padding: 12px; border-bottom: 1px solid #eee; text-align: right; font-weight: bold; color: ${r.highlight ? '#be595b' : '#333'}; font-size: ${r.highlight ? '18px' : '14px'};">${r.v}</td>
+                            </tr>
+                        `;
+                    });
+                }
+            });
+
+            const html = `
+                <div style="font-family: sans-serif; padding: 40px; color: #333;">
+                    <div style="text-align: center; color: #be595b; font-size: 28px; font-weight: bold; border-bottom: 3px solid #be595b; padding-bottom: 15px; margin-bottom: 30px;">土地開發評估報告</div>
+                    
+                    <table style="width: 100%; border-collapse: collapse; background: #fbf5f5; border-radius: 10px; margin-bottom: 30px;">
+                        <tr><td style="padding: 15px; color: #666;">地段地號</td><td style="padding: 15px; text-align: right; font-weight: bold;">${note}</td></tr>
+                        <tr><td style="padding: 15px; color: #666;">評估類別</td><td style="padding: 15px; text-align: right; font-weight: bold;">${cat}</td></tr>
+                        <tr><td style="padding: 15px; color: #666;">產出日期</td><td style="padding: 15px; text-align: right; font-weight: bold;">${date}</td></tr>
+                    </table>
+
+                    <div style="font-size: 18px; font-weight: bold; color: #be595b; margin-bottom: 15px; padding-left: 10px; border-left: 5px solid #be595b;">詳細試算數據</div>
+                    <table style="width: 100%; border-collapse: collapse;">
+                        ${rowsHtml}
+                    </table>
+
+                    <div style="margin-top: 50px; padding-top: 20px; border-top: 1px solid #eee; text-align: center; font-size: 12px; color: #999;">
+                        本報告由土地開發綜合試算工具自動產生，僅供初步參考，實際數據請以政府機關核定為準。
                     </div>
-                    <div style="border: 1px solid #ddd; border-radius: 10px; padding: 20px;">
-                        <h3 style="color: #be595b; border-bottom: 1px solid #eee; padding-bottom: 10px;">詳細試算數據</h3>
+                </div>
             `;
 
-            if (currentMode === 'feedback') {
-                html += `
-                    <div style="display: flex; justify-content: space-between; padding: 8px 0;"><span>土地面積</span><b>${document.getElementById('resAreaText').innerText}</b></div>
-                    <div style="display: flex; justify-content: space-between; padding: 8px 0;"><span>公告現值</span><b>${document.getElementById('resPresentValueText').innerText}</b></div>
-                    <div style="display: flex; justify-content: space-between; padding: 8px 0;"><span>採用比例</span><b>${document.getElementById('resRate').innerText}</b></div>
-                    <div style="margin-top: 20px; text-align: right; font-size: 22px; color: #be595b; font-weight: bold;">預估回饋金總額：${document.getElementById('resFeedbackFee').innerText}</div>
-                `;
-            } else if (currentMode === 'solar') {
-                html += `
-                    <div style="display: flex; justify-content: space-between; padding: 8px 0;"><span>屋頂坪數</span><b>${document.getElementById('resSolarPingValue').innerText}</b></div>
-                    <div style="display: flex; justify-content: space-between; padding: 8px 0;"><span>發電容量</span><b>${document.getElementById('resSolarKwValue').innerText}</b></div>
-                    <div style="margin-top: 20px; text-align: right; font-size: 22px; color: #be595b; font-weight: bold;">年度租金收益：${document.getElementById('resSolarRent').innerText}</div>
-                `;
-            } else if (currentMode === 'utility') {
-                html += `
-                    <div style="display: flex; justify-content: space-between; padding: 8px 0;"><span>動力電力需求</span><b>${document.getElementById('resKw').innerText}</b></div>
-                    <div style="display: flex; justify-content: space-between; padding: 8px 0;"><span>預估日用水量</span><b>${document.getElementById('resWater').innerText}</b></div>
-                `;
-            } else if (currentMode === 'bridge') {
-                html += `
-                    <div style="display: flex; justify-content: space-between; padding: 8px 0;"><span>架橋面積</span><b>${document.getElementById('resBridgeArea').innerText}</b></div>
-                    <div style="margin-top: 20px; text-align: right; font-size: 22px; color: #be595b; font-weight: bold;">預估應繳規費總額：${document.getElementById('resBridgeTotal').innerText}</div>
-                `;
-            }
-
-            html += `</div><div style="margin-top: 40px; font-size: 12px; color: #999; text-align: center;">本報告僅供參考，實際金額請以主管機關核定為準。</div></div>`;
-
-            // 使用 html2pdf 直接處理 HTML 字符串
             const opt = {
                 margin: 10,
-                filename: `報告_${note}.pdf`,
+                filename: `土地開發報告_${note}.pdf`,
                 image: { type: 'jpeg', quality: 0.98 },
-                html2canvas: { scale: 2, useCORS: true },
+                html2canvas: { scale: 2, useCORS: true, letterRendering: true },
                 jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
             };
 
