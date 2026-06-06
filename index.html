@@ -39,6 +39,15 @@
         #historySection { max-height: 0; overflow: hidden; transition: max-height 0.3s ease-out; }
         #historySection.expanded { max-height: 1000px; }
         @media print { .no-print { display: none !important; } }
+        
+        /* PDF 專用樣式優化 */
+        .pdf-report-container { background: white; padding: 20px; border-radius: 8px; }
+        .pdf-title { color: #be595b; font-size: 24px; font-bold: true; border-bottom: 2px solid #be595b; padding-bottom: 10px; margin-bottom: 20px; text-align: center; }
+        .pdf-section { margin-bottom: 15px; border-bottom: 1px dashed #eee; padding-bottom: 10px; }
+        .pdf-row { display: flex; justify-content: space-between; margin-bottom: 5px; font-size: 14px; }
+        .pdf-label { color: #666; }
+        .pdf-value { color: #000; font-weight: bold; }
+        .pdf-total { font-size: 18px; color: #be595b; font-weight: bold; margin-top: 10px; text-align: right; }
     </style>
 </head>
 <body class="bg-background text-text min-h-screen flex flex-col items-center p-4">
@@ -195,8 +204,7 @@
         <button onclick="performCalculation()" class="w-full bg-primary hover:opacity-90 text-white font-bold py-3 rounded-xl shadow-lg transition duration-200 no-print">開始計算 🚀</button>
 
         <div id="resultCard" class="hidden bg-background rounded-2xl p-5 border border-secondary/30 space-y-4">
-            <div id="pdfContent">
-                <div class="mb-4 text-center border-b border-gray-200 pb-2 hidden print:block"><h2 class="text-lg font-bold">土地開發評估詳細報告</h2></div>
+            <div id="visibleResult">
                 <div>
                     <h3 class="text-sm font-bold text-primary border-b border-secondary/30 pb-1">📊 試算結果項目：<span id="resNote" class="text-text">無紀錄</span></h3>
                     <p class="text-[10px] text-gray-400 mt-1">評估業務類別：<span id="resCategory" class="font-semibold text-text">-</span></p>
@@ -321,12 +329,100 @@
             }
             document.getElementById('resultCard').classList.remove('hidden'); saveToHistory(calcResult); document.getElementById('resultCard').scrollIntoView({ behavior: 'smooth' });
         }
+
+        // 修正後的 PDF 導出邏輯
         function exportToPDF() {
-            const element = document.getElementById('pdfContent'); const note = document.getElementById('resNote').innerText;
-            const opt = { margin: 10, filename: `土地開發評估報告_${note}.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2, useCORS: true }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } };
-            const btn = event.currentTarget; const originalText = btn.innerHTML; btn.innerHTML = "<span>正在產生 PDF... ⏳</span>"; btn.disabled = true;
-            html2pdf().set(opt).from(element).save().then(() => { btn.innerHTML = originalText; btn.disabled = false; }).catch(err => { alert("PDF 產生失敗"); btn.innerHTML = originalText; btn.disabled = false; });
+            const btn = event.currentTarget;
+            const originalText = btn.innerHTML;
+            btn.innerHTML = "<span>正在產生 PDF... ⏳</span>";
+            btn.disabled = true;
+
+            // 1. 抓取當前結果數據
+            const note = document.getElementById('resNote').innerText;
+            const category = document.getElementById('resCategory').innerText;
+            const date = document.getElementById('pdfDate').innerText;
+            
+            // 2. 動態建立一個「專門用於 PDF 渲染」的隱藏容器
+            const printDiv = document.createElement('div');
+            printDiv.className = 'pdf-report-container';
+            printDiv.style.width = '700px'; // 固定寬度確保渲染穩定
+            
+            let contentHtml = `
+                <div class="pdf-title">土地開發評估報告</div>
+                <div class="pdf-section">
+                    <div class="pdf-row"><span class="pdf-label">地段地號：</span><span class="pdf-value">${note}</span></div>
+                    <div class="pdf-row"><span class="pdf-label">業務類別：</span><span class="pdf-value">${category}</span></div>
+                    <div class="pdf-row"><span class="pdf-label">產出日期：</span><span class="pdf-value">${date}</span></div>
+                </div>
+            `;
+
+            // 3. 根據當前模式抓取詳細數據
+            if (currentMode === 'feedback') {
+                contentHtml += `
+                    <div class="pdf-section">
+                        <div class="pdf-row"><span>土地面積：</span><span>${document.getElementById('resAreaText').innerText}</span></div>
+                        <div class="pdf-row"><span>公告現值：</span><span>${document.getElementById('resPresentValueText').innerText}</span></div>
+                        <div class="pdf-row"><span>土地坪數：</span><span>${document.getElementById('resPing').innerText}</span></div>
+                        <div class="pdf-row"><span>採用比例：</span><span>${document.getElementById('resRate').innerText}</span></div>
+                    </div>
+                    <div class="pdf-total">預估回饋金總額：${document.getElementById('resFeedbackFee').innerText}</div>
+                `;
+            } else if (currentMode === 'solar') {
+                contentHtml += `
+                    <div class="pdf-section">
+                        <div class="pdf-row"><span>屋頂坪數：</span><span>${document.getElementById('resSolarPingValue').innerText}</span></div>
+                        <div class="pdf-row"><span>發電容量：</span><span>${document.getElementById('resSolarKwValue').innerText}</span></div>
+                        <div class="pdf-row"><span>收購費率：</span><span>${document.getElementById('resSolarFitValue').innerText}</span></div>
+                        <div class="pdf-row"><span>分潤比例：</span><span>${document.getElementById('resSolarRateValue').innerText}</span></div>
+                    </div>
+                    <div class="pdf-total">預估年度租金收益：${document.getElementById('resSolarRent').innerText}</div>
+                `;
+            } else if (currentMode === 'utility') {
+                contentHtml += `
+                    <div class="pdf-section">
+                        <div class="pdf-row"><span>馬力需求：</span><span>${document.getElementById('resHp').innerText}</span></div>
+                        <div class="pdf-row"><span>換算瓦數：</span><span>${document.getElementById('resKw').innerText}</span></div>
+                        <div class="pdf-row"><span>評估人數：</span><span>${document.getElementById('resPeople').innerText}</span></div>
+                        <div class="pdf-row"><span>日用水量：</span><span>${document.getElementById('resWater').innerText}</span></div>
+                    </div>
+                `;
+            } else if (currentMode === 'bridge') {
+                contentHtml += `
+                    <div class="pdf-section">
+                        <div class="pdf-row"><span>架橋尺寸：</span><span>${document.getElementById('resBridgeLen').innerText} x ${document.getElementById('resBridgeWid').innerText}</span></div>
+                        <div class="pdf-row"><span>渠道現值：</span><span>${document.getElementById('resBridgeVal').innerText}</span></div>
+                        <div class="pdf-row"><span>計算基數：</span><span>${document.getElementById('resBridgeYearLabel').innerText}</span></div>
+                        <div class="pdf-row"><span>每年規費：</span><span>${document.getElementById('resBridgeAnnual').innerText}</span></div>
+                    </div>
+                    <div class="pdf-total">預估應繳規費總額：${document.getElementById('resBridgeTotal').innerText}</div>
+                `;
+            }
+
+            printDiv.innerHTML = contentHtml;
+            document.body.appendChild(printDiv);
+
+            const opt = {
+                margin: 10,
+                filename: `土地開發報告_${note}.pdf`,
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { scale: 2, useCORS: true, logging: false },
+                jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+            };
+
+            // 執行導出
+            html2pdf().set(opt).from(printDiv).save().then(() => {
+                document.body.removeChild(printDiv); // 移除暫存容器
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            }).catch(err => {
+                console.error(err);
+                alert("PDF 產生失敗，請確認數值是否正確。");
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+                if (printDiv.parentNode) document.body.removeChild(printDiv);
+            });
         }
+
         function saveToHistory(item) { let history = JSON.parse(localStorage.getItem('land_calc_history') || '[]'); history.unshift(item); if (history.length > 10) history = history.slice(0, 10); localStorage.setItem('land_calc_history', JSON.stringify(history)); renderHistory(); }
         function renderHistory() {
             const history = JSON.parse(localStorage.getItem('land_calc_history') || '[]'); const listEl = document.getElementById('historyList'); const clearBtn = document.getElementById('btnClearHistory');
