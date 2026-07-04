@@ -1,0 +1,19 @@
+{
+  "name": "土地開發試算工具",
+  "short_name": "土地試算",
+  "description": "土地回饋金、太陽能、水電與架橋規費試算",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f8faf9",
+  "theme_color": "#245c4f",
+  "lang": "zh-Hant",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
