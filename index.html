@@ -1,387 +1,155 @@
-<!DOCTYPE html>
-<html lang="zh-TW">
+<!doctype html>
+<html lang="zh-Hant">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>土地開發綜合試算工具</title>
-    
-    <meta name="theme-color" content="#959d65">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <link rel="apple-touch-icon" href="icon-192.png">
-    <link rel="manifest" href="manifest.json">
-
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- 移除原本的 html2pdf 庫以減少負載並避免空白頁問題 -->
-
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        'text': '#0f0f0a',
-                        'background': '#f9faf6',
-                        'primary': '#959d65',
-                        'secondary': '#abcaac',
-                        'accent': '#83b090',
-                    }
-                }
-            }
-        }
-    </script>
-    <style>
-        input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-        input[type=number] { -moz-appearance: textfield; }
-        .no-scrollbar::-webkit-scrollbar { display: none; }
-        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-        .tabs-container { display: flex; overflow-x: auto; white-space: nowrap; -webkit-overflow-scrolling: touch; }
-        .tab-btn { flex: 0 0 auto; padding: 12px 16px; }
-        #historySection { max-height: 0; overflow: hidden; transition: max-height 0.3s ease-out; }
-        #historySection.expanded { max-height: 1000px; }
-        
-        /* 優化列印樣式 */
-        @media print {
-            body { background: white !important; p: 0; }
-            .no-print { display: none !important; }
-            #appContainer { box-shadow: none !important; border: none !important; max-width: 100% !important; width: 100% !important; p: 0 !important; }
-            #resultCard { display: block !important; border: none !important; background: white !important; p: 0 !important; }
-            #printHeader { display: block !important; }
-        }
-    </style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#245c4f">
+  <meta name="description" content="土地開發回饋金、太陽能、水電與架橋規費試算工具">
+  <title>土地開發試算工具</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css">
 </head>
-<body class="bg-background text-text min-h-screen flex flex-col items-center p-4">
+<body>
+  <svg class="svg-defs" aria-hidden="true">
+    <symbol id="icon-land" viewBox="0 0 24 24"><path d="M3 17.5 8 14l4 3 4-3 5 3.5M3 12.5 8 9l4 3 4-3 5 3.5M3 7.5 8 4l4 3 4-3 5 3.5"/></symbol>
+    <symbol id="icon-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M19.1 4.9l-1.4 1.4M6.3 17.7l-1.4 1.4"/></symbol>
+    <symbol id="icon-water" viewBox="0 0 24 24"><path d="M12 3s6 6.4 6 11a6 6 0 0 1-12 0c0-4.6 6-11 6-11Z"/><path d="M9 15.5c.7 1 1.7 1.5 3 1.5"/></symbol>
+    <symbol id="icon-bridge" viewBox="0 0 24 24"><path d="M3 18h18M5 18v-5M19 18v-5M5 13c2.2 0 3.2-4 7-4s4.8 4 7 4M3 13h2M19 13h2"/></symbol>
+    <symbol id="icon-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="icon-trash" viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13"/></symbol>
+    <symbol id="icon-share" viewBox="0 0 24 24"><path d="M12 16V3M7 8l5-5 5 5M5 12v8h14v-8"/></symbol>
+    <symbol id="icon-download" viewBox="0 0 24 24"><path d="M12 3v13M7 11l5 5 5-5M5 21h14"/></symbol>
+    <symbol id="icon-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+  </svg>
 
-    <div id="appContainer" class="bg-white w-full max-w-md rounded-2xl shadow-xl p-6 space-y-6">
-        <div class="text-center border-b pb-4 border-gray-100">
-            <h1 class="text-xl font-bold text-text">土地開發綜合評估報告 </h1>
-            <p class="text-xs text-gray-400 mt-1">產出日期：<span id="pdfDate">未評估</span></p>
-        </div>
-
-        <div class="tabs-container no-scrollbar border-b border-gray-200 no-print">
-            <button id="tabFeedback" onclick="switchTab('feedback')" class="tab-btn text-xs font-bold border-b-2 border-primary text-primary focus:outline-none">回饋金 💰</button>
-            <button id="tabSolar" onclick="switchTab('solar')" class="tab-btn text-xs font-bold border-b-2 border-transparent text-gray-400 focus:outline-none">太陽能 ☀️</button>
-            <button id="tabUtility" onclick="switchTab('utility')" class="tab-btn text-xs font-bold border-b-2 border-transparent text-gray-400 focus:outline-none">水電 💧</button>
-            <button id="tabBridge" onclick="switchTab('bridge')" class="tab-btn text-xs font-bold border-b-2 border-transparent text-gray-400 focus:outline-none">架橋規費 🌉</button>
-        </div>
-
-        <div id="sectionFeedback" class="space-y-4 no-print">
-            <div>
-                <label class="block text-sm font-semibold text-text mb-1">地段地號</label>
-                <input type="text" id="landNote1" placeholder="例如：某某段 123 地號" class="w-full px-4 py-2 border rounded-xl focus:ring-2 focus:ring-secondary focus:outline-none text-sm border-gray-200">
-            </div>
-            <div>
-                <label class="block text-sm font-semibold text-text mb-1">土地面積 (平方公尺)</label>
-                <div class="relative">
-                    <input type="number" inputmode="decimal" id="area" placeholder="請輸入面積" oninput="syncPing()" class="w-full pl-4 pr-12 py-2 border rounded-xl focus:ring-2 focus:ring-secondary focus:outline-none text-sm border-gray-200">
-                    <span class="absolute right-4 top-2 text-sm text-gray-400 font-medium">㎡</span>
-                </div>
-                <p id="pingHint" class="text-xs text-gray-400 mt-1 text-right">約 0.00 坪</p>
-            </div>
-            <div>
-                <label class="block text-sm font-semibold text-text mb-1">公告土地現值 (元/平方公尺)</label>
-                <div class="relative">
-                    <input type="number" inputmode="decimal" id="presentValue" placeholder="請輸入當期公告現值" class="w-full pl-4 pr-16 py-2 border rounded-xl focus:ring-2 focus:ring-secondary focus:outline-none text-sm border-gray-200">
-                    <span class="absolute right-4 top-2 text-sm text-gray-400 font-medium">元/㎡</span>
-                </div>
-            </div>
-            <div>
-                <label class="block text-sm font-semibold text-text mb-2">回饋金繳交比例</label>
-                <div class="grid grid-cols-2 gap-2">
-                    <button id="btnFeedbackDefault" onclick="setFeedbackRate(0.50, this)" class="feedback-rate-btn border p-3 rounded-xl text-base font-bold border-primary bg-background text-primary">特目變更 (50%)</button>
-                    <div class="border rounded-xl p-1 flex items-center bg-background border-gray-200">
-                        <span class="text-xs text-gray-400 pl-2">自訂</span>
-                        <input type="number" inputmode="decimal" id="customFeedbackRate" placeholder="請輸入" oninput="setCustomFeedbackRate()" class="w-full bg-transparent px-2 text-center text-base focus:outline-none font-bold text-text">
-                        <span class="text-sm text-gray-400 pr-2">%</span>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div id="sectionSolar" class="hidden space-y-4 no-print">
-            <div>
-                <label class="block text-sm font-semibold text-text mb-1">地段地號</label>
-                <input type="text" id="landNote2" placeholder="例如：某某段 123 地號" class="w-full px-4 py-2 border rounded-xl focus:ring-2 focus:ring-secondary focus:outline-none text-sm border-gray-200">
-            </div>
-            <div>
-                <label class="block text-sm font-semibold text-text mb-1">屋頂可建坪數 (坪)</label>
-                <div class="relative">
-                    <input type="number" inputmode="decimal" id="solarPing" placeholder="請輸入屋頂坪數" oninput="syncSolarKW()" class="w-full pl-4 pr-12 py-2 border rounded-xl focus:ring-2 focus:ring-secondary focus:outline-none text-sm border-gray-200">
-                    <span class="absolute right-4 top-2 text-sm text-gray-400 font-medium">坪</span>
-                </div>
-                <p id="solarKwHint" class="text-xs text-primary mt-1 text-right font-medium">預估發電量約：0.00 KW</p>
-            </div>
-            <div>
-                <label class="block text-sm font-semibold text-text mb-1">平均日照時間 (小時/天)</label>
-                <div class="relative">
-                    <input type="number" inputmode="decimal" id="solarSunHours" value="3.5" step="0.1" placeholder="台灣平均約 3.5 小時" class="w-full pl-4 pr-16 py-2 border rounded-xl focus:ring-2 focus:ring-secondary focus:outline-none text-sm border-gray-200">
-                    <span class="absolute right-4 top-2 text-sm text-gray-400 font-medium">小時/天</span>
-                </div>
-            </div>
-            <div>
-                <label class="block text-sm font-semibold text-text mb-2">台電收購費率 (元/度)</label>
-                <div class="grid grid-cols-2 gap-2">
-                    <button id="btnFitDefault" onclick="setFitRate(3.8772, this)" class="fit-rate-btn border p-2.5 rounded-xl text-sm font-bold border-primary bg-background text-primary">3.8772 元</button>
-                    <div class="border rounded-xl p-1 flex items-center bg-background border-gray-200">
-                        <span class="text-xs text-gray-400 pl-2">自訂</span>
-                        <input type="number" inputmode="decimal" id="customFitRate" placeholder="請輸入" step="0.0001" oninput="setCustomFitRate()" class="w-full bg-transparent px-1 text-center text-sm focus:outline-none font-bold text-text">
-                    </div>
-                </div>
-            </div>
-            <div>
-                <label class="block text-sm font-semibold text-text mb-2">租金分潤比例</label>
-                <div class="grid grid-cols-3 gap-2">
-                    <button id="btnSolarDefault" onclick="setSolarRate(0.20, this)" class="solar-rate-btn border p-2.5 rounded-xl text-sm font-bold border-primary bg-background text-primary">20%</button>
-                    <button onclick="setSolarRate(0.25, this)" class="solar-rate-btn border p-2.5 rounded-xl text-sm font-bold text-gray-500 bg-white hover:bg-background border-gray-200">25%</button>
-                    <div class="border rounded-xl p-1 flex items-center bg-background border-gray-200">
-                        <input type="number" inputmode="decimal" id="customSolarRate" placeholder="自訂" oninput="setCustomSolarRate()" class="w-full bg-transparent text-center text-sm focus:outline-none font-bold text-text">
-                        <span class="text-xs text-gray-400 pr-1">%</span>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div id="sectionUtility" class="hidden space-y-5 no-print">
-            <div class="bg-background p-4 rounded-xl border border-gray-200 space-y-3">
-                <h3 class="text-sm font-bold text-text flex items-center">⚡ 馬力換算 KW</h3>
-                <div>
-                    <label class="block text-xs font-semibold text-gray-400 mb-1">輸入馬力數 (HP)</label>
-                    <div class="relative">
-                        <input type="number" inputmode="decimal" id="hpValue" placeholder="請輸入馬力" class="w-full pl-4 pr-16 py-2 border rounded-xl focus:ring-2 focus:ring-secondary focus:outline-none text-sm bg-white border-gray-200">
-                        <span class="absolute right-4 top-2 text-sm text-gray-400 font-medium">馬力</span>
-                    </div>
-                </div>
-            </div>
-            <div class="bg-background p-4 rounded-xl border border-gray-200 space-y-3">
-                <h3 class="text-sm font-bold text-text flex items-center">💧 用水量換算</h3>
-                <div>
-                    <label class="block text-xs font-semibold text-gray-400 mb-1">廠區/預估人數 (人)</label>
-                    <div class="relative">
-                        <input type="number" inputmode="numeric" id="peopleCount" placeholder="請輸入人數" class="w-full pl-4 pr-12 py-2 border rounded-xl focus:ring-2 focus:ring-secondary focus:outline-none text-sm bg-white border-gray-200">
-                        <span class="absolute right-4 top-2 text-sm text-gray-400 font-medium">人</span>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div id="sectionBridge" class="hidden space-y-4 no-print">
-            <div>
-                <label class="block text-sm font-semibold text-text mb-1">地段地號</label>
-                <input type="text" id="landNote3" placeholder="例如：某某段 123 地號" class="w-full px-4 py-2 border rounded-xl focus:ring-2 focus:ring-secondary focus:outline-none text-sm border-gray-200">
-            </div>
-            <div class="grid grid-cols-2 gap-3">
-                <div>
-                    <label class="block text-sm font-semibold text-text mb-1">預計長度 (公尺)</label>
-                    <div class="relative">
-                        <input type="number" inputmode="decimal" id="bridgeLength" placeholder="長" step="0.01" class="w-full pl-4 pr-10 py-2 border rounded-xl focus:ring-2 focus:ring-secondary focus:outline-none text-sm border-gray-200">
-                        <span class="absolute right-4 top-2 text-sm text-gray-400 font-medium">M</span>
-                    </div>
-                </div>
-                <div>
-                    <label class="block text-sm font-semibold text-text mb-1">預計寬度 (公尺)</label>
-                    <div class="relative">
-                        <input type="number" inputmode="decimal" id="bridgeWidth" placeholder="寬" step="0.01" class="w-full pl-4 pr-10 py-2 border rounded-xl focus:ring-2 focus:ring-secondary focus:outline-none text-sm border-gray-200">
-                        <span class="absolute right-4 top-2 text-sm text-gray-400 font-medium">M</span>
-                    </div>
-                </div>
-            </div>
-            <div>
-                <label class="block text-sm font-semibold text-text mb-1">渠道土地公告現值 (元/㎡)</label>
-                <div class="relative">
-                    <input type="number" inputmode="decimal" id="bridgeLandValue" placeholder="請輸入渠道公告現值" class="w-full pl-4 pr-16 py-2 border rounded-xl focus:ring-2 focus:ring-secondary focus:outline-none text-sm border-gray-200">
-                    <span class="absolute right-4 top-2 text-sm text-gray-400 font-medium">元/㎡</span>
-                </div>
-            </div>
-            <div>
-                <label class="block text-sm font-semibold text-text mb-2">架橋設置狀態</label>
-                <div class="grid grid-cols-2 gap-2">
-                    <button id="btnBridgeNew" onclick="setBridgeStatus(20, this)" class="bridge-status-btn border p-3 rounded-xl text-sm font-bold border-primary bg-background text-primary">新設 (許可20年)</button>
-                    <button onclick="setBridgeStatus(25, this)" class="bridge-status-btn border p-3 rounded-xl text-sm font-bold text-gray-500 bg-white hover:bg-background border-gray-200">既設 (20年+追繳5年)</button>
-                </div>
-            </div>
-        </div>
-
-        <button onclick="performCalculation()" class="w-full bg-primary hover:opacity-90 text-white font-bold py-3 rounded-xl shadow-lg transition duration-200 no-print">開始計算 🚀</button>
-
-        <div id="resultCard" class="hidden bg-background rounded-2xl p-5 border border-secondary/30 space-y-4">
-            <div id="pdfContent">
-                <!-- 新增：專供列印時顯示的標題 -->
-                <div id="printHeader" class="mb-4 text-center border-b border-gray-200 pb-2 hidden"><h2 class="text-lg font-bold">土地開發評估詳細報告</h2></div>
-                <div>
-                    <h3 class="text-sm font-bold text-primary border-b border-secondary/30 pb-1">📊 試算結果項目：<span id="resNote" class="text-text">無紀錄</span></h3>
-                    <p class="text-[10px] text-gray-400 mt-1">評估業務類別：<span id="resCategory" class="font-semibold text-text">-</span></p>
-                </div>
-                <div id="resFeedbackGroup" class="space-y-2 hidden">
-                    <div class="flex justify-between text-sm text-text/80"><span>土地面積：</span><span id="resAreaText" class="font-semibold text-text">0 ㎡</span></div>
-                    <div class="flex justify-between text-sm text-text/80"><span>公告土地現值：</span><span id="resPresentValueText" class="font-semibold text-text">$0 元 / ㎡</span></div>
-                    <div class="flex justify-between text-sm text-text/80 border-t border-dashed border-secondary/40 pt-1"><span>土地坪數：</span><span id="resPing" class="font-semibold text-text">0 坪</span></div>
-                    <div class="flex justify-between text-sm text-text/80"><span>土地總現值：</span><span id="resTotalValue" class="font-semibold text-text">$0 元</span></div>
-                    <div class="flex justify-between text-sm text-text/80"><span>採用比例：</span><span id="resRate" class="font-semibold text-text">0%</span></div>
-                    <div class="flex justify-between text-sm text-text/80 pt-1 border-t border-dashed border-secondary/40"><span>一坪約多少回饋金：</span><span id="resFeePerPing" class="font-semibold text-primary">$0 元 / 坪</span></div>
-                    <div class="flex justify-between items-center text-base font-bold text-text pt-2 border-t border-secondary/30"><span>💰 預估回饋金總額：</span><span id="resFeedbackFee" class="text-xl text-primary">$0 元</span></div>
-                </div>
-                <div id="resSolarGroup" class="space-y-2 hidden">
-                    <div class="flex justify-between text-sm text-text/80"><span>屋頂設定坪數：</span><span id="resSolarPingValue" class="font-semibold text-text">0 坪</span></div>
-                    <div class="flex justify-between text-sm text-text/80"><span>換算發電容量：</span><span id="resSolarKwValue" class="font-semibold text-primary">0 KW</span></div>
-                    <div class="flex justify-between text-sm text-text/80"><span>設定收購費率：</span><span id="resSolarFitValue" class="font-semibold text-text">0 元 / 度</span></div>
-                    <div class="flex justify-between text-sm text-text/80"><span>分潤比例設定：</span><span id="resSolarRateValue" class="font-semibold text-text">0%</span></div>
-                    <div class="flex justify-between items-center text-base font-bold text-text pt-2 border-t border-secondary/30"><span>☀️ 預估年度屋頂租金：</span><span id="resSolarRent" class="text-xl text-primary">$0 元 / 年</span></div>
-                </div>
-                <div id="resUtilityGroup" class="space-y-3 hidden">
-                    <div class="bg-white p-3 rounded-xl border border-secondary/30 space-y-1">
-                        <div class="text-xs text-gray-400 font-semibold">⚡ 動力電力需求</div>
-                        <div class="flex justify-between text-sm"><span>輸入馬力數：</span><span id="resHp" class="font-semibold text-text">0 HP</span></div>
-                        <div class="flex justify-between text-sm pt-1 border-t border-dashed border-background font-bold text-text"><span>換算瓦數 (KW)：</span><span id="resKw" class="text-primary">0 KW</span></div>
-                    </div>
-                    <div class="bg-white p-3 rounded-xl border border-secondary/30 space-y-1">
-                        <div class="text-xs text-gray-400 font-semibold">💧 廠區用水估計</div>
-                        <div class="flex justify-between text-sm"><span>評估總人數：</span><span id="resPeople" class="font-semibold text-text">0 人</span></div>
-                        <div class="flex justify-between text-sm pt-1 border-t border-dashed border-background font-bold text-text"><span>預估日用水量：</span><span id="resWater" class="text-primary">0 立方公尺 / 日</span></div>
-                    </div>
-                </div>
-                <div id="resBridgeGroup" class="space-y-2 hidden">
-                    <div class="flex justify-between text-sm text-text/80"><span>預計長度：</span><span id="resBridgeLen" class="font-semibold text-text">0 公尺</span></div>
-                    <div class="flex justify-between text-sm text-text/80"><span>預計寬度：</span><span id="resBridgeWid" class="font-semibold text-text">0 公尺</span></div>
-                    <div class="flex justify-between text-sm text-text/80"><span>渠道土地公告現值：</span><span id="resBridgeVal" class="font-semibold text-text">$0 元 / ㎡</span></div>
-                    <div class="flex justify-between text-sm text-text/80 border-t border-dashed border-secondary/30 pt-1"><span>使用面積：</span><span id="resBridgeArea" class="font-semibold text-text">0 平方公尺</span></div>
-                    <div class="flex justify-between text-sm text-text/80"><span>設定計算基數：</span><span id="resBridgeYearLabel" class="font-semibold text-text">20 年</span></div>
-                    <div class="flex justify-between text-sm text-text/80"><span>預估每年使用規費：</span><span id="resBridgeAnnual" class="font-semibold text-primary">$0 元 / 年</span></div>
-                    <div class="flex justify-between items-center text-base font-bold text-text pt-2 border-t border-secondary/30"><span>🌉 預估應繳規費總額：</span><span id="resBridgeTotal" class="text-xl text-primary">$0 元</span></div>
-                    <p id="bridgeNotice" class="text-[11px] text-gray-400 mt-1 italic hidden">註：總額已包含回溯追繳5年之使用規費。</p>
-                </div>
-            </div>
-            
-            <!-- 替換功能按鈕 -->
-            <div class="grid grid-cols-2 gap-3 no-print">
-                <button onclick="copyReport()" class="bg-accent hover:opacity-90 text-text font-semibold py-2.5 rounded-xl shadow transition duration-200 flex items-center justify-center space-x-2 text-sm">
-                    <span>複製報告內容 📋</span>
-                </button>
-                <button onclick="window.print()" class="bg-gray-100 hover:bg-gray-200 text-text font-semibold py-2.5 rounded-xl shadow transition duration-200 flex items-center justify-center space-x-2 text-sm">
-                    <span>列印/另存 PDF 🖨️</span>
-                </button>
-            </div>
-        </div>
-
-        <div class="border-t pt-4 no-print">
-            <button onclick="toggleHistory()" class="flex items-center justify-between w-full text-sm font-bold text-gray-500 hover:text-primary transition"><span>歷史紀錄 📜 (最近 10 筆)</span><span id="historyChevron">▼</span></button>
-            <div id="historySection" class="mt-3 space-y-2"><div id="historyList" class="space-y-2"><p class="text-xs text-gray-400 text-center py-2">尚無紀錄</p></div><button onclick="clearHistory()" id="btnClearHistory" class="hidden w-full text-[10px] text-gray-400 hover:text-red-400 mt-2 underline">清除所有紀錄</button></div>
-        </div>
+  <header class="app-header">
+    <div>
+      <p class="eyebrow">內部試算工具</p>
+      <h1>土地開發試算</h1>
     </div>
+    <button class="history-toggle" id="historyToggle" type="button" aria-controls="historyPanel" aria-expanded="false">
+      <svg><use href="#icon-clock"/></svg>
+      紀錄
+    </button>
+  </header>
 
-    <p class="text-[10px] text-gray-400 mt-6 text-center max-w-md px-4">本工具僅供初步估算參考，實際金額請以各主管機關核定為準。<br>支援 PWA：可點擊瀏覽器選單「新增至主畫面」離線使用。</p>
+  <main>
+    <nav class="tabs" aria-label="試算類型">
+      <button class="tab active" type="button" data-mode="feedback"><svg><use href="#icon-land"/></svg><span>回饋金</span></button>
+      <button class="tab" type="button" data-mode="solar"><svg><use href="#icon-sun"/></svg><span>太陽能</span></button>
+      <button class="tab" type="button" data-mode="utility"><svg><use href="#icon-water"/></svg><span>水電</span></button>
+      <button class="tab" type="button" data-mode="bridge"><svg><use href="#icon-bridge"/></svg><span>架橋規費</span></button>
+    </nav>
 
-    <script>
-        let currentMode = 'feedback'; let feedbackRate = 0.50; let solarRate = 0.20; let fitRate = 3.8772; let bridgeMultiplier = 20;
-        
-        function switchTab(mode) {
-            currentMode = mode; const resultCard = document.getElementById('resultCard'); if (resultCard) resultCard.classList.add('hidden');
-            const tabs = ['feedback', 'solar', 'utility', 'bridge'];
-            const tabNames = { feedback: 'tabFeedback', solar: 'tabSolar', utility: 'tabUtility', bridge: 'tabBridge' };
-            const secNames = { feedback: 'sectionFeedback', solar: 'sectionSolar', utility: 'sectionUtility', bridge: 'sectionBridge' };
-            tabs.forEach(tKey => {
-                const tEl = document.getElementById(tabNames[tKey]); const sEl = document.getElementById(secNames[tKey]);
-                if (tEl && sEl) {
-                    if (tKey === mode) { tEl.className = "tab-btn text-xs font-bold border-b-2 border-primary text-primary focus:outline-none"; sEl.classList.remove('hidden'); }
-                    else { tEl.className = "tab-btn text-xs font-bold border-b-2 border-transparent text-gray-400 focus:outline-none"; sEl.classList.add('hidden'); }
-                }
-            });
-        }
+    <aside id="historyPanel" class="history-panel hidden" aria-label="最近試算紀錄">
+      <div class="section-heading">
+        <div><p class="step">本機資料</p><h2>最近 10 筆紀錄</h2></div>
+        <button id="clearHistory" class="text-button" type="button">清除全部</button>
+      </div>
+      <div id="historyList" class="history-list"></div>
+    </aside>
 
-        function syncPing() { const el = document.getElementById('area'); const hint = document.getElementById('pingHint'); if (el && hint) { const val = parseFloat(el.value); hint.innerText = (!isNaN(val) && val > 0) ? `約 ${(val * 0.3025).toFixed(2)} 坪` : `約 0.00 坪`; } }
-        function syncSolarKW() { const el = document.getElementById('solarPing'); const hint = document.getElementById('solarKwHint'); if (el && hint) { const val = parseFloat(el.value); hint.innerText = (!isNaN(val) && val > 0) ? `預估發電量約： ${(val / 2).toFixed(2)} KW` : `預估發電量約：0.00 KW`; } }
-        function setFeedbackRate(rate, element) { feedbackRate = rate; const customInput = document.getElementById('customFeedbackRate'); if (customInput) customInput.value = ''; document.querySelectorAll('.feedback-rate-btn').forEach(btn => { btn.className = "feedback-rate-btn border p-3 rounded-xl text-base font-bold text-gray-500 bg-white hover:bg-background border-gray-200"; }); if (element) element.className = "feedback-rate-btn border p-3 rounded-xl text-base font-bold border-primary bg-background text-primary"; }
-        function setCustomFeedbackRate() { document.querySelectorAll('.feedback-rate-btn').forEach(btn => { btn.className = "feedback-rate-btn border p-3 rounded-xl text-base font-bold text-gray-500 bg-white hover:bg-background border-gray-200"; }); const customInput = document.getElementById('customFeedbackRate'); let val = customInput ? parseFloat(customInput.value) : 0; feedbackRate = !isNaN(val) ? val / 100 : 0; }
-        function setFitRate(rate, element) { fitRate = rate; const customInput = document.getElementById('customFitRate'); if (customInput) customInput.value = ''; document.querySelectorAll('.fit-rate-btn').forEach(btn => { btn.className = "fit-rate-btn border p-2.5 rounded-xl text-sm font-bold border-gray-200 bg-white text-gray-500 hover:bg-background"; }); if (element) element.className = "fit-rate-btn border p-2.5 rounded-xl text-sm font-bold border-primary bg-background text-primary"; }
-        function setCustomFitRate() { document.querySelectorAll('.fit-rate-btn').forEach(btn => { btn.className = "fit-rate-btn border p-2.5 rounded-xl text-sm font-bold border-gray-200 bg-white text-gray-500 hover:bg-background"; }); const customInput = document.getElementById('customFitRate'); let val = customInput ? parseFloat(customInput.value) : 0; fitRate = !isNaN(val) ? val : 0; }
-        function setSolarRate(rate, element) { solarRate = rate; const customInput = document.getElementById('customSolarRate'); if (customInput) customInput.value = ''; document.querySelectorAll('.solar-rate-btn').forEach(btn => { btn.className = "solar-rate-btn border p-2.5 rounded-xl text-sm font-bold border-gray-200 bg-white text-gray-500 hover:bg-background"; }); if (element) element.className = "solar-rate-btn border p-2.5 rounded-xl text-sm font-bold border-primary bg-background text-primary"; }
-        function setCustomSolarRate() { document.querySelectorAll('.solar-rate-btn').forEach(btn => { btn.className = "solar-rate-btn border p-2.5 rounded-xl text-sm font-bold border-gray-200 bg-white text-gray-500 hover:bg-background"; }); const customInput = document.getElementById('customSolarRate'); let val = customInput ? parseFloat(customInput.value) : 0; solarRate = !isNaN(val) ? val / 100 : 0; }
-        function setBridgeStatus(multiplier, element) { bridgeMultiplier = multiplier; document.querySelectorAll('.bridge-status-btn').forEach(btn => { btn.className = "bridge-status-btn border p-3 rounded-xl text-sm font-bold border-gray-200 bg-white text-gray-500 hover:bg-background"; }); if (element) element.className = "bridge-status-btn border p-3 rounded-xl text-sm font-bold border-primary bg-background text-primary"; }
+    <form id="calculatorForm" novalidate>
+      <section class="calculator-section" data-section="feedback">
+        <div class="section-heading">
+          <div><p class="step">土地變更</p><h2>回饋金試算</h2></div>
+        </div>
+        <label class="field">
+          <span>客戶名稱 <small>選填</small></span>
+          <input id="feedbackCustomer" type="text" maxlength="50" placeholder="例如：王先生">
+        </label>
+        <div class="parcel-heading">
+          <div><span class="field-title">土地資料</span><small>每筆地號分別填寫</small></div>
+          <button id="addParcel" class="secondary-button compact" type="button"><svg><use href="#icon-plus"/></svg>新增地號</button>
+        </div>
+        <div id="parcelList" class="parcel-list"></div>
+        <fieldset class="choice-field">
+          <legend>回饋金繳交比例</legend>
+          <div class="segmented">
+            <label><input type="radio" name="feedbackRate" value="50" checked><span>特目變更 50%</span></label>
+            <label><input type="radio" name="feedbackRate" value="custom"><span>自訂</span></label>
+          </div>
+          <label class="field inline-custom hidden" id="feedbackCustomWrap">
+            <span>自訂比例</span>
+            <span class="input-unit"><input id="feedbackCustomRate" type="number" min="0.01" max="100" step="0.01" inputmode="decimal" placeholder="輸入比例"><b>%</b></span>
+          </label>
+        </fieldset>
+      </section>
 
-        function performCalculation() {
-            const today = new Date(); const dateStr = `${today.getFullYear()}/${today.getMonth() + 1}/${today.getDate()}`; document.getElementById('pdfDate').innerText = dateStr;
-            const groups = { feedback: document.getElementById('resFeedbackGroup'), solar: document.getElementById('resSolarGroup'), utility: document.getElementById('resUtilityGroup'), bridge: document.getElementById('resBridgeGroup') };
-            Object.values(groups).forEach(g => { if(g) g.classList.add('hidden'); });
-            let calcResult = { date: dateStr, note: "", category: "", amount: "" };
-            
-            if (currentMode === 'feedback') {
-                const note = document.getElementById('landNote1').value || "未註記地號"; const area = parseFloat(document.getElementById('area').value); const presentValue = parseFloat(document.getElementById('presentValue').value);
-                if (isNaN(area) || area <= 0 || isNaN(presentValue) || presentValue <= 0 || feedbackRate === 0) { alert("請確實填寫面積、公告現值並選擇回饋金比例！"); return; }
-                const ping = area * 0.3025; const totalValue = area * presentValue; const feedbackFee = Math.round(totalValue * feedbackRate); const feePerPing = Math.round(feedbackFee / ping);
-                document.getElementById('resNote').innerText = note; document.getElementById('resCategory').innerText = "土地變更回饋金試算";
-                document.getElementById('resAreaText').innerText = `${area.toLocaleString()} ㎡`; document.getElementById('resPresentValueText').innerText = `$${presentValue.toLocaleString()} 元 / ㎡`;
-                document.getElementById('resPing').innerText = `${ping.toFixed(2)} 坪`; document.getElementById('resTotalValue').innerText = `$${totalValue.toLocaleString()} 元`;
-                document.getElementById('resRate').innerText = `${(feedbackRate * 100).toFixed(0)}%`; document.getElementById('resFeePerPing').innerText = `$${feePerPing.toLocaleString()} 元 / 坪`;
-                document.getElementById('resFeedbackFee').innerText = `$${feedbackFee.toLocaleString()} 元`;
-                if(groups.feedback) groups.feedback.classList.remove('hidden'); calcResult.note = note; calcResult.category = "回饋金"; calcResult.amount = `$${feedbackFee.toLocaleString()}`;
-            } else if (currentMode === 'solar') {
-                const note = document.getElementById('landNote2').value || "未註記地號"; const ping = parseFloat(document.getElementById('solarPing').value); const sunHours = parseFloat(document.getElementById('solarSunHours').value);
-                if (isNaN(ping) || ping <= 0 || isNaN(sunHours) || sunHours <= 0 || solarRate === 0 || fitRate === 0) { alert("請確實填寫屋頂坪數、日照小時，並選取收購費率與租金比例！"); return; }
-                const kwCapacity = ping / 2; const annualRent = Math.round(kwCapacity * sunHours * 365 * fitRate * solarRate);
-                document.getElementById('resNote').innerText = note; document.getElementById('resCategory').innerText = "屋頂太陽能地租收益評估";
-                document.getElementById('resSolarPingValue').innerText = `${ping} 坪`; document.getElementById('resSolarKwValue').innerText = `${kwCapacity.toFixed(2)} KW`;
-                document.getElementById('resSolarFitValue').innerText = `${fitRate} 元 / 度`; document.getElementById('resSolarRateValue').innerText = `${(solarRate * 100).toFixed(0)}%`;
-                document.getElementById('resSolarRent').innerText = `$${annualRent.toLocaleString()} 元 / 年`;
-                if(groups.solar) groups.solar.classList.remove('hidden'); calcResult.note = note; calcResult.category = "太陽能"; calcResult.amount = `$${annualRent.toLocaleString()} /年`;
-            } else if (currentMode === 'utility') {
-                const hp = parseFloat(document.getElementById('hpValue').value) || 0; const people = parseInt(document.getElementById('peopleCount').value) || 0;
-                if (hp === 0 && people === 0) { alert("請至少輸入馬力數或人數其中一項進行試算！"); return; }
-                const kwResult = hp * 0.75; const waterLitersPerDay = (people * 150) / 4; const waterCubicMetersPerDay = waterLitersPerDay / 1000;
-                document.getElementById('resNote').innerText = "廠區水電評估"; document.getElementById('resCategory').innerText = "廠區動力電力與用水需求評估";
-                document.getElementById('resHp').innerText = `${hp} HP`; document.getElementById('resKw').innerText = `${kwResult.toFixed(2)} KW`;
-                document.getElementById('resPeople').innerText = `${people} 人`; document.getElementById('resWater').innerText = `${waterCubicMetersPerDay.toFixed(2)} 立方公尺 / 日`;
-                if(groups.utility) groups.utility.classList.remove('hidden'); calcResult.note = "廠區水電"; calcResult.category = "水電評估"; calcResult.amount = `${kwResult.toFixed(1)}KW / ${waterCubicMetersPerDay.toFixed(1)}CMD`;
-            } else if (currentMode === 'bridge') {
-                const note = document.getElementById('landNote3').value || "未註記地號"; const len = parseFloat(document.getElementById('bridgeLength').value); const wid = parseFloat(document.getElementById('bridgeWidth').value); const landVal = parseFloat(document.getElementById('bridgeLandValue').value);
-                if (isNaN(len) || isNaN(wid) || isNaN(landVal) || len <= 0 || wid <= 0 || landVal <= 0) { alert("請填寫完整的架橋尺寸與渠道公告現值！"); return; }
-                const area = len * wid; const annualFee = Math.round(area * landVal * 0.05); const totalFee = annualFee * bridgeMultiplier;
-                document.getElementById('resNote').innerText = note; document.getElementById('resCategory').innerText = "架設私設橋樑規費評估";
-                document.getElementById('resBridgeLen').innerText = `${len} 公尺`; document.getElementById('resBridgeWid').innerText = `${wid} 公尺`;
-                document.getElementById('resBridgeVal').innerText = `$${landVal.toLocaleString()} 元 / ㎡`; document.getElementById('resBridgeArea').innerText = `${area.toFixed(2)} 平方公尺`;
-                document.getElementById('resBridgeYearLabel').innerText = `${bridgeMultiplier} 年`; document.getElementById('resBridgeAnnual').innerText = `$${annualFee.toLocaleString()} 元 / 年`;
-                document.getElementById('resBridgeTotal').innerText = `$${totalFee.toLocaleString()} 元`;
-                const notice = document.getElementById('bridgeNotice'); if (bridgeMultiplier === 25) notice.classList.remove('hidden'); else notice.classList.add('hidden');
-                if(groups.bridge) groups.bridge.classList.remove('hidden'); calcResult.note = note; calcResult.category = "架橋規費"; calcResult.amount = `$${totalFee.toLocaleString()}`;
-            }
-            document.getElementById('resultCard').classList.remove('hidden'); saveToHistory(calcResult); document.getElementById('resultCard').scrollIntoView({ behavior: 'smooth' });
-        }
+      <section class="calculator-section hidden" data-section="solar">
+        <div class="section-heading"><div><p class="step">再生能源</p><h2>太陽能收益試算</h2></div></div>
+        <label class="field"><span>客戶名稱 <small>選填</small></span><input id="solarCustomer" type="text" maxlength="50" placeholder="例如：王先生"></label>
+        <label class="field"><span>地段地號</span><input id="solarLandNo" type="text" maxlength="80" placeholder="例如：某某段 123 地號"></label>
+        <div class="field-grid">
+          <label class="field"><span>屋頂可建坪數</span><span class="input-unit"><input id="solarPing" type="number" min="0.01" step="0.01" inputmode="decimal" placeholder="輸入坪數"><b>坪</b></span><small id="solarKwHint">預估容量 0.00 KW</small></label>
+          <label class="field"><span>平均日照時間</span><span class="input-unit"><input id="sunHours" type="number" min="0.01" step="0.1" inputmode="decimal" value="3.5"><b>小時/天</b></span></label>
+        </div>
+        <div class="field-grid">
+          <label class="field"><span>台電收購費率</span><span class="input-unit"><input id="fitRate" type="number" min="0.0001" step="0.0001" inputmode="decimal" value="3.8772"><b>元/度</b></span></label>
+          <label class="field"><span>租金分潤比例</span><span class="input-unit"><input id="solarRate" type="number" min="0.01" max="100" step="0.01" inputmode="decimal" value="20"><b>%</b></span></label>
+        </div>
+      </section>
 
-        // 修正：新增複製報告內容功能
-        function copyReport() {
-            const date = document.getElementById('pdfDate').innerText;
-            const note = document.getElementById('resNote').innerText;
-            const category = document.getElementById('resCategory').innerText;
-            let content = `【土地開發評估報告】\n產出日期：${date}\n項目：${note}\n類別：${category}\n------------------\n`;
-            
-            if (currentMode === 'feedback') {
-                content += `土地面積：${document.getElementById('resAreaText').innerText}\n公告現值：${document.getElementById('resPresentValueText').innerText}\n土地坪數：${document.getElementById('resPing').innerText}\n土地總值：${document.getElementById('resTotalValue').innerText}\n回饋比例：${document.getElementById('resRate').innerText}\n預估總額：${document.getElementById('resFeedbackFee').innerText}`;
-            } else if (currentMode === 'solar') {
-                content += `屋頂坪數：${document.getElementById('resSolarPingValue').innerText}\n發電容量：${document.getElementById('resSolarKwValue').innerText}\n收購費率：${document.getElementById('resSolarFitValue').innerText}\n分潤比例：${document.getElementById('resSolarRateValue').innerText}\n預估年租金：${document.getElementById('resSolarRent').innerText}`;
-            } else if (currentMode === 'utility') {
-                content += `馬力數：${document.getElementById('resHp').innerText}\n換算瓦數：${document.getElementById('resKw').innerText}\n評估人數：${document.getElementById('resPeople').innerText}\n日用水量：${document.getElementById('resWater').innerText}`;
-            } else if (currentMode === 'bridge') {
-                content += `架橋尺寸：${document.getElementById('resBridgeLen').innerText} x ${document.getElementById('resBridgeWid').innerText}\n使用面積：${document.getElementById('resBridgeArea').innerText}\n每年規費：${document.getElementById('resBridgeAnnual').innerText}\n應繳總額：${document.getElementById('resBridgeTotal').innerText}`;
-            }
+      <section class="calculator-section hidden" data-section="utility">
+        <div class="section-heading"><div><p class="step">廠區需求</p><h2>水電需求試算</h2></div></div>
+        <div class="notice">馬力數與人數至少填寫一項；未填項目將以 0 計算。</div>
+        <div class="field-grid">
+          <label class="field"><span>設備總馬力</span><span class="input-unit"><input id="horsepower" type="number" min="0" step="0.01" inputmode="decimal" placeholder="輸入馬力"><b>HP</b></span></label>
+          <label class="field"><span>評估人數</span><span class="input-unit"><input id="people" type="number" min="0" step="1" inputmode="numeric" placeholder="輸入人數"><b>人</b></span></label>
+        </div>
+      </section>
 
-            navigator.clipboard.writeText(content).then(() => {
-                alert("報告內容已複製到剪貼簿！");
-            }).catch(err => {
-                console.error('無法複製', err);
-                alert("複製失敗，請手動選取文字複製。");
-            });
-        }
+      <section class="calculator-section hidden" data-section="bridge">
+        <div class="section-heading"><div><p class="step">渠道使用</p><h2>架橋規費試算</h2></div></div>
+        <label class="field"><span>客戶名稱 <small>選填</small></span><input id="bridgeCustomer" type="text" maxlength="50" placeholder="例如：王先生"></label>
+        <label class="field"><span>地段地號</span><input id="bridgeLandNo" type="text" maxlength="80" placeholder="例如：某某段 123 地號"></label>
+        <div class="field-grid">
+          <label class="field"><span>預計長度</span><span class="input-unit"><input id="bridgeLength" type="number" min="0.01" step="0.01" inputmode="decimal" placeholder="輸入長度"><b>公尺</b></span></label>
+          <label class="field"><span>預計寬度</span><span class="input-unit"><input id="bridgeWidth" type="number" min="0.01" step="0.01" inputmode="decimal" placeholder="輸入寬度"><b>公尺</b></span></label>
+        </div>
+        <label class="field"><span>渠道土地公告現值</span><span class="input-unit"><input id="bridgeValue" type="number" min="0.01" step="1" inputmode="decimal" placeholder="輸入公告現值"><b>元/㎡</b></span></label>
+        <fieldset class="choice-field">
+          <legend>架橋設置狀態</legend>
+          <div class="segmented">
+            <label><input type="radio" name="bridgeYears" value="20" checked><span>新設（20 年）</span></label>
+            <label><input type="radio" name="bridgeYears" value="25"><span>既設（含追繳 5 年）</span></label>
+          </div>
+        </fieldset>
+      </section>
 
-        function saveToHistory(item) { let history = JSON.parse(localStorage.getItem('land_calc_history') || '[]'); history.unshift(item); if (history.length > 10) history = history.slice(0, 10); localStorage.setItem('land_calc_history', JSON.stringify(history)); renderHistory(); }
-        function renderHistory() {
-            const history = JSON.parse(localStorage.getItem('land_calc_history') || '[]'); const listEl = document.getElementById('historyList'); const clearBtn = document.getElementById('btnClearHistory');
-            if (history.length === 0) { listEl.innerHTML = '<p class="text-xs text-gray-400 text-center py-2">尚無紀錄</p>'; clearBtn.classList.add('hidden'); return; }
-            clearBtn.classList.remove('hidden'); listEl.innerHTML = history.map(item => `<div class="bg-background p-3 rounded-xl border border-gray-100 flex justify-between items-center text-xs"><div class="space-y-1"><div class="font-bold text-text">${item.note} <span class="text-[10px] font-normal text-gray-400 ml-1">(${item.category})</span></div><div class="text-[10px] text-gray-400">${item.date}</div></div><div class="text-primary font-bold text-sm">${item.amount}</div></div>`).join('');
-        }
-        function clearHistory() { if (confirm('確定要清除所有歷史紀錄嗎？')) { localStorage.removeItem('land_calc_history'); renderHistory(); } }
-        function toggleHistory() { const section = document.getElementById('historySection'); const chevron = document.getElementById('historyChevron'); section.classList.toggle('expanded'); chevron.style.transform = section.classList.contains('expanded') ? 'rotate(180deg)' : 'rotate(0deg)'; }
-        
-        window.onload = () => {
-            renderHistory();
-            if ('serviceWorker' in navigator) { navigator.serviceWorker.register('./sw.js').then(() => console.log('SW registered')); }
-        };
-    </script>
+      <div id="formError" class="form-error hidden" role="alert"></div>
+      <button class="primary-button" type="submit">開始計算</button>
+    </form>
+
+    <section id="resultSection" class="result-section hidden" aria-live="polite">
+      <div class="result-card">
+        <p class="step">試算完成</p>
+        <h2 id="resultTitle"></h2>
+        <div id="resultMeta" class="result-meta"></div>
+        <div id="resultDetails" class="result-details"></div>
+        <div class="result-total"><span id="resultTotalLabel"></span><strong id="resultTotal"></strong></div>
+        <p class="disclaimer">本工具僅供初步估算參考，實際金額與申請條件請以主管機關核定為準。</p>
+      </div>
+      <div class="result-actions">
+        <button id="shareImage" class="primary-button" type="button"><svg><use href="#icon-share"/></svg>分享結果圖片</button>
+        <button id="downloadImage" class="secondary-button" type="button"><svg><use href="#icon-download"/></svg>儲存 PNG</button>
+      </div>
+      <p id="shareStatus" class="share-status" aria-live="polite"></p>
+    </section>
+  </main>
+
+  <template id="parcelTemplate">
+    <article class="parcel-card">
+      <div class="parcel-card-head"><strong>地號 <span class="parcel-number"></span></strong><button class="icon-button remove-parcel" type="button" aria-label="刪除此地號"><svg><use href="#icon-trash"/></svg></button></div>
+      <label class="field"><span>地段地號</span><input class="parcel-land-no" type="text" maxlength="80" placeholder="例如：某某段 123 地號"></label>
+      <div class="field-grid">
+        <label class="field"><span>土地面積</span><span class="input-unit"><input class="parcel-area" type="number" min="0.01" step="0.01" inputmode="decimal" placeholder="輸入面積"><b>㎡</b></span><small class="parcel-ping">約 0.00 坪</small></label>
+        <label class="field"><span>公告土地現值</span><span class="input-unit"><input class="parcel-value" type="number" min="0.01" step="1" inputmode="decimal" placeholder="輸入現值"><b>元/㎡</b></span></label>
+      </div>
+    </article>
+  </template>
+
+  <script src="app.js" defer></script>
 </body>
 </html>
