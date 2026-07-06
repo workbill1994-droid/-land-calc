@@ -1,4 +1,4 @@
-const CACHE_NAME = "land-calc-v5";
+const CACHE_NAME = "land-calc-v6";
 const APP_FILES = ["./", "index.html", "styles.css", "app.js", "manifest.webmanifest", "icon.svg"];
 
 self.addEventListener("install", (event) => {
