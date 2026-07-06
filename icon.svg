@@ -6,17 +6,16 @@
     </linearGradient>
   </defs>
   <rect width="512" height="512" rx="112" fill="url(#bg)"/>
-  <g fill="none" stroke="#fffaf2" stroke-width="22" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M92 118h246l74 91-74 91H92L52 209l40-91Z"/>
-    <path d="M190 118v182M190 209h148"/>
-    <rect x="268" y="222" width="166" height="190" rx="30" fill="#075046"/>
-    <rect x="294" y="250" width="114" height="43" rx="7"/>
+  <g fill="none" stroke="#fffaf2" stroke-width="24" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="105" y="56" width="302" height="400" rx="48"/>
+    <rect x="140" y="98" width="232" height="116" rx="14"/>
+    <path d="M140 156h232M228 98v116M300 98v116"/>
   </g>
   <g fill="#e79a24" stroke="#fffaf2" stroke-width="12">
-    <circle cx="310" cy="329" r="13"/>
-    <circle cx="351" cy="329" r="13"/>
-    <circle cx="310" cy="371" r="13"/>
-    <circle cx="351" cy="371" r="13"/>
-    <rect x="389" y="316" width="19" height="68" rx="9"/>
+    <circle cx="166" cy="281" r="22"/>
+    <circle cx="239" cy="281" r="22"/>
+    <circle cx="166" cy="365" r="22"/>
+    <circle cx="239" cy="365" r="22"/>
+    <rect x="303" y="253" width="56" height="140" rx="25"/>
   </g>
 </svg>
