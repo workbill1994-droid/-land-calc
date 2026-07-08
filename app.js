@@ -100,6 +100,7 @@ function calculateFeedback() {
   const totalArea = parcels.reduce((sum, item) => sum + item.area, 0);
   const totalPing = parcels.reduce((sum, item) => sum + item.ping, 0);
   const totalFee = parcels.reduce((sum, item) => sum + item.fee, 0);
+  const feePerPing = totalFee / totalPing;
   return {
     mode: "feedback",
     title: modeTitles.feedback,
@@ -108,7 +109,8 @@ function calculateFeedback() {
     meta: [`地號筆數：${parcels.length} 筆`, `回饋比例：${formatNumber(rate)}%`],
     parcels,
     details: [
-      ["土地總面積", `${formatNumber(totalArea)} ㎡（約 ${formatNumber(totalPing)} 坪）`]
+      ["土地總面積", `${formatNumber(totalArea)} ㎡（約 ${formatNumber(totalPing)} 坪）`],
+      ["每坪土地回饋金", `${currency(feePerPing)} / 坪`]
     ],
     totalLabel: "預估回饋金總額",
     totalText: currency(totalFee),
